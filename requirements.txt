@@ -1,0 +1,18 @@
+# Database
+SQLAlchemy>=2.0.0
+alembic>=1.13.0
+psycopg2-binary>=2.9.9
+python-ulid>=3.0.0
+typing_extensions>=4.0.0
+
+# gRPC
+grpcio>=1.60.0
+grpcio-tools>=1.60.0
+protobuf>=4.25.0
+
+# Auth
+bcrypt>=4.1.0
+PyJWT>=2.8.0
+
+# REST API (for frontend)
+flask>=3.0.0

@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package library;
+
+import "proto/library.proto";
+import "proto/auth.proto";
+
+
+service LibraryService {
+  rpc Login(auth.LoginRequest) returns (auth.LoginResponse);
+  rpc CreateBook(CreateBookRequest) returns (CreateBookResponse);
+  rpc UpdateBook(UpdateBookRequest) returns (UpdateBookResponse);
+  rpc ListBooks(ListBooksRequest) returns (ListBooksResponse);
+  rpc CreateMember(CreateMemberRequest) returns (CreateMemberResponse);
+  rpc UpdateMember(UpdateMemberRequest) returns (UpdateMemberResponse);
+  rpc ListMembers(ListMembersRequest) returns (ListMembersResponse);
+  rpc BorrowBook(BorrowBookRequest) returns (BorrowBookResponse);
+  rpc ReturnBook(ReturnBookRequest) returns (ReturnBookResponse);
+  rpc ListBorrowings(ListBorrowingsRequest) returns (ListBorrowingsResponse);
+  rpc CreateBookCopy(CreateBookCopyRequest) returns (CreateBookCopyResponse);
+  rpc ListAvailableCopies(ListAvailableCopiesRequest) returns (ListAvailableCopiesResponse);
+  rpc ListCopiesByBook(ListCopiesByBookRequest) returns (ListCopiesByBookResponse);
+}
