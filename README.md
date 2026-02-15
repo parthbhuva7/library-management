@@ -148,3 +148,72 @@ python3 -m pytest test/ -v
 ├── frontend/             # Next.js app
 └── test/                 # Tests
 ```
+
+### Data Model
+
+**Entities and Relationships (SQLAlchemy models with ULID PKs):**
+
+```
+Book (title-level catalog)
+├── id (PK, ULID, CHAR(26))
+├── title (required)
+├── author (required)
+├── isbn (optional)
+├── created_at
+└── updated_at
+
+BookCopy (copy-level inventory)
+├── id (PK, ULID, CHAR(26))
+├── book_id (FK → Book.id)
+├── copy_number (e.g., "Copy 1", "Copy 2")
+├── status (available, checked_out, lost)
+├── created_at
+└── updated_at
+
+Member
+├── id (PK, ULID, CHAR(26))
+├── name (required)
+├── email (required, unique)
+├── created_at
+└── updated_at
+
+Borrow
+├── id (PK, ULID, CHAR(26))
+├── copy_id (FK → BookCopy.id)
+├── member_id (FK → Member.id)
+├── borrowed_at (timestamp)
+├── returned_at (timestamp, NULL if active)
+└── status (active, returned)
+
+StaffUser
+├── id (PK, ULID, CHAR(26))
+├── username (unique, required)
+├── password_hash (bcrypt, required)
+├── created_at
+└── last_login_at
+```
+
+**Key Relationships:**
+- BookCopy.book_id → Book.id (many copies per title)
+- Borrow.copy_id → BookCopy.id (many borrows per copy over time)
+- Borrow.member_id → Member.id (many borrows per member)
+- Only one active borrow per copy (enforced by pessimistic lock)
+
+**Indexes:**
+- All primary keys (automatic)
+- book_copies.book_id, book_copies.status
+- members.email (unique)
+- borrows.copy_id, borrows.member_id, borrows.status
+- staff_users.username (unique)
+
+**Validation Rules:**
+- Book title: required, non-empty string
+- Book author: required, non-empty string
+- Member name: required, non-empty string
+- Member email: required, valid email format, unique
+- Copy status: enum (available, checked_out, lost)
+- Borrow status: enum (active, returned)
+
+**Concurrency Handling:**
+- Use `with_for_update()` when checking copy availability before borrow (pessimistic locking)
+- Database transaction ensures atomicity
