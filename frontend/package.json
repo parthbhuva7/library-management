@@ -7,21 +7,30 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "generate:grpc": "../scripts/generate_grpc_web.sh"
   },
   "dependencies": {
     "google-protobuf": "^4.0.1",
     "grpc-web": "^2.0.2",
+    "lucide-react": "^0.574.0",
     "next": "14.2.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },
   "devDependencies": {
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
+    "@vitejs/plugin-react": "^5.1.4",
+    "jsdom": "^28.1.0",
     "protoc-gen-grpc-web": "^1.5.0",
     "protoc-gen-js": "^3.21.4-4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.0.18"
   }
 }

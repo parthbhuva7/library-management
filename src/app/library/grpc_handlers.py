@@ -4,8 +4,11 @@ gRPC service handlers for LibraryService.
 import logging
 
 import grpc
+from sqlalchemy.exc import IntegrityError, OperationalError
 from config import JWT_SECRET
-from util.database import get_session
+from util.database import session_context
+from util.exceptions import ConflictError, ResourceNotFound, ValidationError
+from util.validators import clamp_pagination
 from app.auth.auth_service import AuthService
 from app.auth.repository import StaffUserRepository
 from app.library.library_service import LibraryService
@@ -106,8 +109,7 @@ class LibraryServiceHandler(library_service_pb2_grpc.LibraryServiceServicer):
     def Login(self, request, context):
         """Authenticate staff and return JWT token."""
         logger.info("Login attempt for user: %s", request.username)
-        session = get_session()
-        try:
+        with session_context() as session:
             result = AuthService.login(
                 session,
                 request.username,
@@ -124,15 +126,12 @@ class LibraryServiceHandler(library_service_pb2_grpc.LibraryServiceServicer):
                 token=result["token"],
                 expires_at=result["expires_at"]
             )
-        finally:
-            session.close()
 
     def CreateBook(self, request, context):
         """Create a new book."""
         if _require_auth(context) is None:
             return library_pb2.CreateBookResponse()
-        session = get_session()
-        try:
+        with session_context() as session:
             book = LibraryService.create_book(
                 session,
                 request.title,
@@ -140,15 +139,12 @@ class LibraryServiceHandler(library_service_pb2_grpc.LibraryServiceServicer):
                 request.isbn or None
             )
             return library_pb2.CreateBookResponse(book=_model_to_book_proto(book))
-        finally:
-            session.close()
 
     def UpdateBook(self, request, context):
         """Update a book."""
         if _require_auth(context) is None:
             return library_pb2.UpdateBookResponse()
-        session = get_session()
-        try:
+        with session_context() as session:
             book = LibraryService.update_book(
                 session,
                 request.id,
@@ -161,19 +157,75 @@ class LibraryServiceHandler(library_service_pb2_grpc.LibraryServiceServicer):
                 context.set_details("Book not found")
                 return library_pb2.UpdateBookResponse()
             return library_pb2.UpdateBookResponse(book=_model_to_book_proto(book))
-        finally:
-            session.close()
+
+    def GetBook(self, request, context):
+        """Get a book by ID with copy count."""
+        if _require_auth(context) is None:
+            return library_pb2.GetBookResponse()
+        book_id = request.id or ""
+        try:
+            with session_context() as session:
+                book, copy_count = LibraryService.get_book_by_id(
+                    session, book_id
+                )
+                return library_pb2.GetBookResponse(
+                    book=_model_to_book_proto(book, copy_count)
+                )
+        except ValidationError as exc:
+            context.set_code(grpc.StatusCode.INVALID_ARGUMENT)
+            context.set_details(str(exc))
+            return library_pb2.GetBookResponse()
+        except ResourceNotFound as exc:
+            context.set_code(grpc.StatusCode.NOT_FOUND)
+            context.set_details(str(exc))
+            return library_pb2.GetBookResponse()
+        except (IntegrityError, OperationalError) as exc:
+            logger.exception("Database error in GetBook: %s", exc)
+            context.set_code(grpc.StatusCode.INTERNAL)
+            context.set_details("An error occurred")
+            return library_pb2.GetBookResponse()
+
+    def GetMember(self, request, context):
+        """Get a member by ID."""
+        if _require_auth(context) is None:
+            return library_pb2.GetMemberResponse()
+        member_id = request.id or ""
+        try:
+            with session_context() as session:
+                member = LibraryService.get_member_by_id(session, member_id)
+                return library_pb2.GetMemberResponse(
+                    member=_model_to_member_proto(member)
+                )
+        except ValidationError as exc:
+            context.set_code(grpc.StatusCode.INVALID_ARGUMENT)
+            context.set_details(str(exc))
+            return library_pb2.GetMemberResponse()
+        except ResourceNotFound as exc:
+            context.set_code(grpc.StatusCode.NOT_FOUND)
+            context.set_details(str(exc))
+            return library_pb2.GetMemberResponse()
+        except (IntegrityError, OperationalError) as exc:
+            logger.exception("Database error in GetMember: %s", exc)
+            context.set_code(grpc.StatusCode.INTERNAL)
+            context.set_details("An error occurred")
+            return library_pb2.GetMemberResponse()
 
     def ListBooks(self, request, context):
         """List books with pagination and copy counts."""
         if _require_auth(context) is None:
             return library_pb2.ListBooksResponse()
-        session = get_session()
-        try:
+        with session_context() as session:
             page = request.pagination.page if request.pagination else 1
             limit = request.pagination.limit if request.pagination else 100
+            page, limit = clamp_pagination(page, limit)
+            title = request.title or None
+            author = request.author or None
+            isbn = request.isbn or None
+            query = request.query or None
+            if query is not None and not query.strip():
+                query = None
             books_with_counts, total = LibraryService.list_books(
-                session, page, limit
+                session, page, limit, title, author, isbn, query
             )
             book_protos = [
                 _model_to_book_proto(book, copy_count)
@@ -187,15 +239,12 @@ class LibraryServiceHandler(library_service_pb2_grpc.LibraryServiceServicer):
                     total_count=total
                 )
             )
-        finally:
-            session.close()
 
     def CreateMember(self, request, context):
         """Create a new member."""
         if _require_auth(context) is None:
             return library_pb2.CreateMemberResponse()
-        session = get_session()
-        try:
+        with session_context() as session:
             member = LibraryService.create_member(
                 session,
                 request.name,
@@ -204,15 +253,12 @@ class LibraryServiceHandler(library_service_pb2_grpc.LibraryServiceServicer):
             return library_pb2.CreateMemberResponse(
                 member=_model_to_member_proto(member)
             )
-        finally:
-            session.close()
 
     def UpdateMember(self, request, context):
         """Update a member."""
         if _require_auth(context) is None:
             return library_pb2.UpdateMemberResponse()
-        session = get_session()
-        try:
+        with session_context() as session:
             member = LibraryService.update_member(
                 session,
                 request.id,
@@ -226,18 +272,23 @@ class LibraryServiceHandler(library_service_pb2_grpc.LibraryServiceServicer):
             return library_pb2.UpdateMemberResponse(
                 member=_model_to_member_proto(member)
             )
-        finally:
-            session.close()
 
     def ListMembers(self, request, context):
         """List members with pagination."""
         if _require_auth(context) is None:
             return library_pb2.ListMembersResponse()
-        session = get_session()
-        try:
+        with session_context() as session:
             page = request.pagination.page if request.pagination else 1
             limit = request.pagination.limit if request.pagination else 100
-            members, total = LibraryService.list_members(session, page, limit)
+            page, limit = clamp_pagination(page, limit)
+            name = request.name or None
+            email = request.email or None
+            query = request.query or None
+            if query is not None and not query.strip():
+                query = None
+            members, total = LibraryService.list_members(
+                session, page, limit, name, email, query
+            )
             return library_pb2.ListMembersResponse(
                 members=[_model_to_member_proto(m) for m in members],
                 pagination=library_pb2.PaginationResponse(
@@ -246,63 +297,64 @@ class LibraryServiceHandler(library_service_pb2_grpc.LibraryServiceServicer):
                     total_count=total
                 )
             )
-        finally:
-            session.close()
 
     def BorrowBook(self, request, context):
         """Borrow a book copy (with pessimistic locking)."""
         if _require_auth(context) is None:
             return library_pb2.BorrowBookResponse()
-        session = get_session()
         try:
-            borrow, error = LibraryService.borrow_book(
-                session,
-                request.copy_id,
-                request.member_id
-            )
-            if error:
-                logger.warning("Borrow failed: %s", error)
-                context.set_code(grpc.StatusCode.FAILED_PRECONDITION)
-                context.set_details(error)
-                return library_pb2.BorrowBookResponse()
-            return library_pb2.BorrowBookResponse(
-                borrow=_model_to_borrow_proto(borrow)
-            )
-        finally:
-            session.close()
+            with session_context() as session:
+                borrow = LibraryService.borrow_book(
+                    session,
+                    request.copy_id,
+                    request.member_id
+                )
+                return library_pb2.BorrowBookResponse(
+                    borrow=_model_to_borrow_proto(borrow)
+                )
+        except ResourceNotFound as exc:
+            context.set_code(grpc.StatusCode.NOT_FOUND)
+            context.set_details(str(exc))
+            return library_pb2.BorrowBookResponse()
+        except ConflictError as exc:
+            logger.warning("Borrow failed: %s", exc)
+            context.set_code(grpc.StatusCode.FAILED_PRECONDITION)
+            context.set_details(str(exc))
+            return library_pb2.BorrowBookResponse()
 
     def ReturnBook(self, request, context):
         """Return a book by copy id."""
         if _require_auth(context) is None:
             return library_pb2.ReturnBookResponse()
-        session = get_session()
         try:
-            borrow, error = LibraryService.return_book(
-                session,
-                request.copy_id
-            )
-            if error:
-                logger.warning("Return failed: %s", error)
-                context.set_code(grpc.StatusCode.FAILED_PRECONDITION)
-                context.set_details(error)
-                return library_pb2.ReturnBookResponse()
-            return library_pb2.ReturnBookResponse(
-                borrow=_model_to_borrow_proto(borrow)
-            )
-        finally:
-            session.close()
+            with session_context() as session:
+                borrow = LibraryService.return_book(
+                    session,
+                    request.copy_id
+                )
+                return library_pb2.ReturnBookResponse(
+                    borrow=_model_to_borrow_proto(borrow)
+                )
+        except ConflictError as exc:
+            logger.warning("Return failed: %s", exc)
+            context.set_code(grpc.StatusCode.FAILED_PRECONDITION)
+            context.set_details(str(exc))
+            return library_pb2.ReturnBookResponse()
 
     def ListBorrowings(self, request, context):
         """List borrowings, optionally by member."""
         if _require_auth(context) is None:
             return library_pb2.ListBorrowingsResponse()
-        session = get_session()
-        try:
+        with session_context() as session:
             page = request.pagination.page if request.pagination else 1
             limit = request.pagination.limit if request.pagination else 100
+            page, limit = clamp_pagination(page, limit)
             member_id = request.member_id or None
+            query = request.query or None
+            if query is not None and not query.strip():
+                query = None
             borrows, total = LibraryService.list_borrowings(
-                session, member_id, page, limit
+                session, member_id, page, limit, query
             )
             return library_pb2.ListBorrowingsResponse(
                 borrows=[_model_to_borrow_proto(b) for b in borrows],
@@ -312,41 +364,38 @@ class LibraryServiceHandler(library_service_pb2_grpc.LibraryServiceServicer):
                     total_count=total
                 )
             )
-        finally:
-            session.close()
 
     def CreateBookCopy(self, request, context):
         """Create a new book copy."""
         if _require_auth(context) is None:
             return library_pb2.CreateBookCopyResponse()
-        session = get_session()
         try:
-            copy, error = LibraryService.create_book_copy(
-                session,
-                request.book_id,
-                request.copy_number or ""
-            )
-            if error:
-                if error == "Book not found":
-                    context.set_code(grpc.StatusCode.NOT_FOUND)
-                else:
-                    context.set_code(grpc.StatusCode.INVALID_ARGUMENT)
-                context.set_details(error)
-                return library_pb2.CreateBookCopyResponse()
-            return library_pb2.CreateBookCopyResponse(
-                copy=_model_to_book_copy_proto(copy)
-            )
-        finally:
-            session.close()
+            with session_context() as session:
+                copy = LibraryService.create_book_copy(
+                    session,
+                    request.book_id,
+                    request.copy_number or ""
+                )
+                return library_pb2.CreateBookCopyResponse(
+                    copy=_model_to_book_copy_proto(copy)
+                )
+        except ResourceNotFound as exc:
+            context.set_code(grpc.StatusCode.NOT_FOUND)
+            context.set_details(str(exc))
+            return library_pb2.CreateBookCopyResponse()
+        except ConflictError as exc:
+            context.set_code(grpc.StatusCode.INVALID_ARGUMENT)
+            context.set_details(str(exc))
+            return library_pb2.CreateBookCopyResponse()
 
     def ListAvailableCopies(self, request, context):
         """List available copies with book info."""
         if _require_auth(context) is None:
             return library_pb2.ListAvailableCopiesResponse()
-        session = get_session()
-        try:
+        with session_context() as session:
             page = request.pagination.page if request.pagination else 1
             limit = request.pagination.limit if request.pagination else 100
+            page, limit = clamp_pagination(page, limit)
             rows, total = LibraryService.list_available_copies(
                 session, page, limit
             )
@@ -366,15 +415,12 @@ class LibraryServiceHandler(library_service_pb2_grpc.LibraryServiceServicer):
                     total_count=total
                 )
             )
-        finally:
-            session.close()
 
     def ListCopiesByBook(self, request, context):
         """List copies for a book with pagination."""
         if _require_auth(context) is None:
             return library_pb2.ListCopiesByBookResponse()
-        session = get_session()
-        try:
+        with session_context() as session:
             book_id = request.book_id or ""
             if not book_id:
                 context.set_code(grpc.StatusCode.INVALID_ARGUMENT)
@@ -382,6 +428,7 @@ class LibraryServiceHandler(library_service_pb2_grpc.LibraryServiceServicer):
                 return library_pb2.ListCopiesByBookResponse()
             page = request.pagination.page if request.pagination else 1
             limit = request.pagination.limit if request.pagination else 100
+            page, limit = clamp_pagination(page, limit)
             copies, total = LibraryService.list_copies_by_book_id(
                 session, book_id, page, limit
             )
@@ -397,5 +444,3 @@ class LibraryServiceHandler(library_service_pb2_grpc.LibraryServiceServicer):
                     total_count=total
                 )
             )
-        finally:
-            session.close()

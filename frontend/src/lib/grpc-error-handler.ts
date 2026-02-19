@@ -51,3 +51,11 @@ export function is_auth_error(err: unknown): boolean {
   const rpc = err as RpcError;
   return typeof rpc?.code === 'number' && rpc.code === UNAUTHENTICATED;
 }
+
+/**
+ * Check if error indicates resource not found (404).
+ */
+export function is_not_found_error(err: unknown): boolean {
+  const rpc = err as RpcError;
+  return typeof rpc?.code === 'number' && rpc.code === NOT_FOUND;
+}

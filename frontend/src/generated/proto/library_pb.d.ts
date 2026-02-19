@@ -292,11 +292,61 @@ export namespace UpdateBookResponse {
   }
 }
 
+export class GetBookRequest extends jspb.Message {
+  getId(): string;
+  setId(value: string): GetBookRequest;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): GetBookRequest.AsObject;
+  static toObject(includeInstance: boolean, msg: GetBookRequest): GetBookRequest.AsObject;
+  static serializeBinaryToWriter(message: GetBookRequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): GetBookRequest;
+  static deserializeBinaryFromReader(message: GetBookRequest, reader: jspb.BinaryReader): GetBookRequest;
+}
+
+export namespace GetBookRequest {
+  export type AsObject = {
+    id: string,
+  }
+}
+
+export class GetBookResponse extends jspb.Message {
+  getBook(): Book | undefined;
+  setBook(value?: Book): GetBookResponse;
+  hasBook(): boolean;
+  clearBook(): GetBookResponse;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): GetBookResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: GetBookResponse): GetBookResponse.AsObject;
+  static serializeBinaryToWriter(message: GetBookResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): GetBookResponse;
+  static deserializeBinaryFromReader(message: GetBookResponse, reader: jspb.BinaryReader): GetBookResponse;
+}
+
+export namespace GetBookResponse {
+  export type AsObject = {
+    book?: Book.AsObject,
+  }
+}
+
 export class ListBooksRequest extends jspb.Message {
   getPagination(): PaginationRequest | undefined;
   setPagination(value?: PaginationRequest): ListBooksRequest;
   hasPagination(): boolean;
   clearPagination(): ListBooksRequest;
+
+  getTitle(): string;
+  setTitle(value: string): ListBooksRequest;
+
+  getAuthor(): string;
+  setAuthor(value: string): ListBooksRequest;
+
+  getIsbn(): string;
+  setIsbn(value: string): ListBooksRequest;
+
+  getQuery(): string;
+  setQuery(value: string): ListBooksRequest;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): ListBooksRequest.AsObject;
@@ -309,6 +359,10 @@ export class ListBooksRequest extends jspb.Message {
 export namespace ListBooksRequest {
   export type AsObject = {
     pagination?: PaginationRequest.AsObject,
+    title: string,
+    author: string,
+    isbn: string,
+    query: string,
   }
 }
 
@@ -426,11 +480,58 @@ export namespace UpdateMemberResponse {
   }
 }
 
+export class GetMemberRequest extends jspb.Message {
+  getId(): string;
+  setId(value: string): GetMemberRequest;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): GetMemberRequest.AsObject;
+  static toObject(includeInstance: boolean, msg: GetMemberRequest): GetMemberRequest.AsObject;
+  static serializeBinaryToWriter(message: GetMemberRequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): GetMemberRequest;
+  static deserializeBinaryFromReader(message: GetMemberRequest, reader: jspb.BinaryReader): GetMemberRequest;
+}
+
+export namespace GetMemberRequest {
+  export type AsObject = {
+    id: string,
+  }
+}
+
+export class GetMemberResponse extends jspb.Message {
+  getMember(): Member | undefined;
+  setMember(value?: Member): GetMemberResponse;
+  hasMember(): boolean;
+  clearMember(): GetMemberResponse;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): GetMemberResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: GetMemberResponse): GetMemberResponse.AsObject;
+  static serializeBinaryToWriter(message: GetMemberResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): GetMemberResponse;
+  static deserializeBinaryFromReader(message: GetMemberResponse, reader: jspb.BinaryReader): GetMemberResponse;
+}
+
+export namespace GetMemberResponse {
+  export type AsObject = {
+    member?: Member.AsObject,
+  }
+}
+
 export class ListMembersRequest extends jspb.Message {
   getPagination(): PaginationRequest | undefined;
   setPagination(value?: PaginationRequest): ListMembersRequest;
   hasPagination(): boolean;
   clearPagination(): ListMembersRequest;
+
+  getName(): string;
+  setName(value: string): ListMembersRequest;
+
+  getEmail(): string;
+  setEmail(value: string): ListMembersRequest;
+
+  getQuery(): string;
+  setQuery(value: string): ListMembersRequest;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): ListMembersRequest.AsObject;
@@ -443,6 +544,9 @@ export class ListMembersRequest extends jspb.Message {
 export namespace ListMembersRequest {
   export type AsObject = {
     pagination?: PaginationRequest.AsObject,
+    name: string,
+    email: string,
+    query: string,
   }
 }
 
@@ -561,6 +665,9 @@ export class ListBorrowingsRequest extends jspb.Message {
   hasPagination(): boolean;
   clearPagination(): ListBorrowingsRequest;
 
+  getQuery(): string;
+  setQuery(value: string): ListBorrowingsRequest;
+
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): ListBorrowingsRequest.AsObject;
   static toObject(includeInstance: boolean, msg: ListBorrowingsRequest): ListBorrowingsRequest.AsObject;
@@ -573,6 +680,7 @@ export namespace ListBorrowingsRequest {
   export type AsObject = {
     memberId: string,
     pagination?: PaginationRequest.AsObject,
+    query: string,
   }
 }
 

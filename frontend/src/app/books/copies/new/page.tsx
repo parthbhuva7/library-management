@@ -2,14 +2,14 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import {
-  CreateBookCopyRequest,
-  ListBooksRequest,
-  PaginationRequest,
-  Book,
-} from '@/generated';
-import { get_library_client, get_auth_metadata } from '@/lib/grpc-client';
+import { Book } from '@/generated';
+import { LibraryService } from '@/services/library-service';
 import { handle_grpc_error, is_auth_error } from '@/lib/grpc-error-handler';
+import {
+  trim_whitespace,
+  validate_required,
+  get_validation_errors,
+} from '@/lib/form-validation';
 import FormField from '@/components/FormField';
 import Button from '@/components/Button';
 import ErrorMessage from '@/components/ErrorMessage';
@@ -17,13 +17,17 @@ import PageTitle from '@/components/PageTitle';
 import BackLink from '@/components/BackLink';
 import PageLink from '@/components/PageLink';
 import Loading from '@/components/Loading';
+import SelectField from '@/components/SelectField';
+import styles from '@/styles/Page.module.css';
 
 export default function NewBookCopyPage() {
   const [bookId, setBookId] = useState('');
   const [copyNumber, setCopyNumber] = useState('');
   const [books, setBooks] = useState<Book[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -32,14 +36,7 @@ export default function NewBookCopyPage() {
       window.location.href = '/login';
       return;
     }
-    const req = new ListBooksRequest();
-    const pagination = new PaginationRequest();
-    pagination.setPage(1);
-    pagination.setLimit(100);
-    req.setPagination(pagination);
-    const client = get_library_client();
-    client
-      .listBooks(req, get_auth_metadata())
+    LibraryService.listBooks(1, 100)
       .then((resp) => setBooks(resp.getBooksList()))
       .catch((err) => {
         if (is_auth_error(err)) {
@@ -54,12 +51,19 @@ export default function NewBookCopyPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    const request = new CreateBookCopyRequest();
-    request.setBookId(bookId);
-    request.setCopyNumber(copyNumber);
-    const client = get_library_client();
+    const errors: Record<string, string> = {};
+    if (!trim_whitespace(bookId)) {
+      errors.bookId = 'Book is required';
+    }
+    Object.assign(errors, get_validation_errors({ copyNumber }));
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      return;
+    }
+    setFieldErrors({});
+    setSubmitting(true);
     try {
-      await client.createBookCopy(request, get_auth_metadata());
+      await LibraryService.createBookCopy(bookId, trim_whitespace(copyNumber));
       router.push('/books');
     } catch (err) {
       if (is_auth_error(err)) {
@@ -67,6 +71,8 @@ export default function NewBookCopyPage() {
         return;
       }
       setError(handle_grpc_error(err));
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -78,7 +84,7 @@ export default function NewBookCopyPage() {
       <div>
         <BackLink href="/books" />
         <PageTitle>Add Book Copy</PageTitle>
-        <p style={{ marginBottom: 'var(--space-4)' }}>
+        <p className={styles.paragraph}>
           No books yet. Add a book first.
         </p>
         <PageLink href="/books/new">Add Book</PageLink>
@@ -91,50 +97,38 @@ export default function NewBookCopyPage() {
       <BackLink href="/books" />
       <PageTitle>Add Book Copy</PageTitle>
       <form onSubmit={handleSubmit}>
-        <div style={{ marginBottom: 'var(--space-4)' }}>
-          <label
-            htmlFor="bookId"
-            style={{
-              display: 'block',
-              marginBottom: 'var(--space-2)',
-              fontSize: 'var(--font-size-base)',
-            }}
-          >
-            Book
-          </label>
-          <select
-            id="bookId"
-            name="bookId"
-            value={bookId}
-            onChange={(e) => setBookId(e.target.value)}
-            required
-            style={{
-              display: 'block',
-              width: '100%',
-              maxWidth: 300,
-              padding: 'var(--space-2) var(--space-3)',
-              fontSize: 'var(--font-size-base)',
-              border: '1px solid var(--border)',
-              borderRadius: 4,
-            }}
-          >
-            <option value="">Select a book</option>
-            {books.map((b) => (
-              <option key={b.getId()} value={b.getId()}>
-                {b.getTitle()} by {b.getAuthor()}
-              </option>
-            ))}
-          </select>
-        </div>
+        <SelectField
+          label="Book"
+          name="bookId"
+          value={bookId}
+          onChange={(v) => {
+            setBookId(v);
+            setFieldErrors((prev) => ({ ...prev, bookId: '' }));
+          }}
+          options={books.map((b) => ({
+            value: b.getId(),
+            label: `${b.getTitle()} by ${b.getAuthor()}`,
+          }))}
+          placeholder="Select a book"
+          error={fieldErrors.bookId}
+        />
         <FormField
           label="Copy number"
           name="copyNumber"
           value={copyNumber}
           onChange={setCopyNumber}
           required
+          error={fieldErrors.copyNumber}
+          onValidate={(v) => validate_required(v, 'Copy number')}
+          validateOnChange
+          onValidationChange={(err) =>
+            setFieldErrors((prev) => ({ ...prev, copyNumber: err ?? '' }))
+          }
         />
         {error && <ErrorMessage message={error} />}
-        <Button type="submit">Add Copy</Button>
+        <Button type="submit" loading={submitting}>
+          Add Copy
+        </Button>
       </form>
     </div>
   );

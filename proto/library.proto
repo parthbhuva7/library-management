@@ -67,8 +67,20 @@ message UpdateBookResponse {
   Book book = 1;
 }
 
+message GetBookRequest {
+  string id = 1;
+}
+
+message GetBookResponse {
+  Book book = 1;
+}
+
 message ListBooksRequest {
   PaginationRequest pagination = 1;
+  string title = 2;
+  string author = 3;
+  string isbn = 4;
+  string query = 5;
 }
 
 message ListBooksResponse {
@@ -95,8 +107,19 @@ message UpdateMemberResponse {
   Member member = 1;
 }
 
+message GetMemberRequest {
+  string id = 1;
+}
+
+message GetMemberResponse {
+  Member member = 1;
+}
+
 message ListMembersRequest {
   PaginationRequest pagination = 1;
+  string name = 2;
+  string email = 3;
+  string query = 4;
 }
 
 message ListMembersResponse {
@@ -124,6 +147,7 @@ message ReturnBookResponse {
 message ListBorrowingsRequest {
   string member_id = 1;
   PaginationRequest pagination = 2;
+  string query = 3;
 }
 
 message ListBorrowingsResponse {

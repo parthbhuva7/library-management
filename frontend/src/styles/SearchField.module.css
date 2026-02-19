@@ -1,0 +1,13 @@
+.wrapper {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.input {
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--font-size-base);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  min-width: 200px;
+}

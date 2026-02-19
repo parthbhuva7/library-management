@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import styles from '@/styles/BackLink.module.css';
 
 interface BackLinkProps {
   href: string;
@@ -8,16 +9,5 @@ interface BackLinkProps {
 }
 
 export default function BackLink({ href, children = 'Back' }: BackLinkProps) {
-  return (
-    <Link
-      href={href}
-      style={{
-        color: 'var(--muted)',
-        marginBottom: 'var(--space-4)',
-        display: 'inline-block',
-      }}
-    >
-      {children}
-    </Link>
-  );
+  return <Link href={href} className={styles.link}>{children}</Link>;
 }

@@ -1,51 +1,8 @@
 'use client';
 
-const LIST_STYLE: React.CSSProperties = {
-  listStyle: 'none',
-  margin: 0,
-  padding: 0,
-  display: 'grid',
-  minWidth: 400,
-  overflowX: 'auto',
-};
+import styles from '@/styles/List.module.css';
 
-const ROW_STYLE: React.CSSProperties = {
-  display: 'contents',
-};
-
-const HEADER_ROW_STYLE: React.CSSProperties = {
-  ...ROW_STYLE,
-};
-
-const CELL_BASE_STYLE: React.CSSProperties = {
-  minWidth: 0,
-  overflow: 'hidden',
-  textOverflow: 'ellipsis',
-  whiteSpace: 'nowrap',
-};
-
-const HEADER_CELL_STYLE: React.CSSProperties = {
-  ...CELL_BASE_STYLE,
-  padding: 'var(--space-2)',
-  borderBottom: '1px solid var(--border)',
-  fontSize: 'var(--font-size-base)',
-  fontWeight: 'bold',
-  backgroundColor: 'var(--border)',
-};
-
-const DATA_CELL_STYLE: React.CSSProperties = {
-  ...CELL_BASE_STYLE,
-  padding: 'var(--space-3) var(--space-2)',
-  borderBottom: '1px solid var(--border)',
-  fontSize: 'var(--font-size-base)',
-};
-
-const TRUNCATE_STYLE: React.CSSProperties = {
-  overflow: 'hidden',
-  textOverflow: 'ellipsis',
-  whiteSpace: 'nowrap',
-  minWidth: 0,
-};
+export type Alignment = 'left' | 'right' | 'center';
 
 function get_grid_template_columns(
   column_count: number,
@@ -57,10 +14,17 @@ function get_grid_template_columns(
   return `repeat(${column_count}, minmax(0, 1fr))`;
 }
 
+function getAlignmentClass(align?: Alignment): string {
+  if (!align || align === 'left') return styles.alignLeft;
+  if (align === 'right') return styles.alignRight;
+  return styles.alignCenter;
+}
+
 interface ListProps {
   children: React.ReactNode;
   headers?: string[];
   columnWidths?: string[];
+  alignments?: Alignment[];
 }
 
 interface ListItemProps {
@@ -70,36 +34,46 @@ interface ListItemProps {
 interface ListCellProps {
   children: React.ReactNode;
   truncate?: boolean;
+  align?: Alignment;
 }
 
 export function Truncate({ children }: { children: React.ReactNode }) {
-  return <span style={TRUNCATE_STYLE}>{children}</span>;
+  return <span className={styles.truncate}>{children}</span>;
 }
 
 export function ListCell({
   children,
   truncate = true,
+  align = 'left',
 }: ListCellProps) {
   const content = truncate ? (
-    <span style={TRUNCATE_STYLE}>{children}</span>
+    <span className={styles.truncate}>{children}</span>
   ) : (
     children
   );
-  const cell_style: React.CSSProperties = truncate
-    ? DATA_CELL_STYLE
-    : { ...DATA_CELL_STYLE, overflow: 'visible' };
-  return <span style={cell_style}>{content}</span>;
+  const cell_class = truncate
+    ? `${styles.dataCell} ${getAlignmentClass(align)}`
+    : `${styles.dataCell} ${styles.dataCellNoTruncate} ${getAlignmentClass(align)}`;
+  return <span className={cell_class}>{content}</span>;
 }
 
 export function ListItem({ children }: ListItemProps) {
-  return <li style={ROW_STYLE}>{children}</li>;
+  return <li className={styles.row}>{children}</li>;
 }
 
-export function ListHeader({ headers }: { headers: string[] }) {
+interface ListHeaderProps {
+  headers: string[];
+  alignments?: Alignment[];
+}
+
+export function ListHeader({ headers, alignments }: ListHeaderProps) {
   return (
-    <li style={HEADER_ROW_STYLE}>
+    <li className={styles.row}>
       {headers.map((h, i) => (
-        <span key={i} style={HEADER_CELL_STYLE}>
+        <span
+          key={i}
+          className={`${styles.headerCell} ${getAlignmentClass(alignments?.[i])}`}
+        >
           {h}
         </span>
       ))}
@@ -111,6 +85,7 @@ export default function List({
   children,
   headers,
   columnWidths,
+  alignments,
 }: ListProps) {
   const column_count = headers ? headers.length : 1;
   const grid_template_columns = get_grid_template_columns(
@@ -118,14 +93,14 @@ export default function List({
     columnWidths
   );
 
-  const list_style: React.CSSProperties = {
-    ...LIST_STYLE,
-    gridTemplateColumns: grid_template_columns,
-  };
-
   return (
-    <ul style={list_style}>
-      {headers && <ListHeader headers={headers} />}
+    <ul
+      className={styles.list}
+      style={
+        { '--list-grid-cols': grid_template_columns } as React.CSSProperties
+      }
+    >
+      {headers && <ListHeader headers={headers} alignments={alignments} />}
       {children}
     </ul>
   );

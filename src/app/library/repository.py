@@ -2,7 +2,7 @@
 Library data access layer using SQLAlchemy ORM.
 """
 from datetime import datetime, timezone
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from models.book import Book
@@ -80,6 +80,74 @@ class BookRepository:
     def count(session: Session) -> int:
         """Count total books."""
         return session.query(Book).count()
+
+    @staticmethod
+    def list_filtered(
+        session: Session,
+        title: str | None = None,
+        author: str | None = None,
+        isbn: str | None = None,
+        query: str | None = None,
+        limit: int = 100,
+        offset: int = 0
+    ) -> list[Book]:
+        """
+        List books with optional filters (case-insensitive contains).
+
+        When query is provided, searches title OR author OR isbn.
+        When all filters are empty/null, returns all books.
+        """
+        q = session.query(Book)
+        if query and query.strip():
+            pattern = f"%{query.strip()}%"
+            q = q.filter(
+                or_(
+                    Book.title.ilike(pattern),
+                    Book.author.ilike(pattern),
+                    (Book.isbn.isnot(None) & Book.isbn.ilike(pattern)),
+                )
+            )
+        else:
+            if title:
+                q = q.filter(Book.title.ilike(f"%{title}%"))
+            if author:
+                q = q.filter(Book.author.ilike(f"%{author}%"))
+            if isbn:
+                q = q.filter(Book.isbn.ilike(f"%{isbn}%"))
+        return list(
+            q.order_by(Book.created_at.desc())
+            .limit(limit)
+            .offset(offset)
+            .all()
+        )
+
+    @staticmethod
+    def count_filtered(
+        session: Session,
+        title: str | None = None,
+        author: str | None = None,
+        isbn: str | None = None,
+        query: str | None = None
+    ) -> int:
+        """Count books matching filters."""
+        q = session.query(Book)
+        if query and query.strip():
+            pattern = f"%{query.strip()}%"
+            q = q.filter(
+                or_(
+                    Book.title.ilike(pattern),
+                    Book.author.ilike(pattern),
+                    (Book.isbn.isnot(None) & Book.isbn.ilike(pattern)),
+                )
+            )
+        else:
+            if title:
+                q = q.filter(Book.title.ilike(f"%{title}%"))
+            if author:
+                q = q.filter(Book.author.ilike(f"%{author}%"))
+            if isbn:
+                q = q.filter(Book.isbn.ilike(f"%{isbn}%"))
+        return q.count()
 
 
 class BookCopyRepository:
@@ -318,6 +386,60 @@ class MemberRepository:
         """Count total members."""
         return session.query(Member).count()
 
+    @staticmethod
+    def list_filtered(
+        session: Session,
+        name: str | None = None,
+        email: str | None = None,
+        query: str | None = None,
+        limit: int = 100,
+        offset: int = 0
+    ) -> list[Member]:
+        """
+        List members with optional filters (case-insensitive contains).
+
+        When query is provided, searches name OR email.
+        When all filters are empty/null, returns all members.
+        """
+        q = session.query(Member)
+        if query and query.strip():
+            pattern = f"%{query.strip()}%"
+            q = q.filter(
+                or_(Member.name.ilike(pattern), Member.email.ilike(pattern))
+            )
+        else:
+            if name:
+                q = q.filter(Member.name.ilike(f"%{name}%"))
+            if email:
+                q = q.filter(Member.email.ilike(f"%{email}%"))
+        return list(
+            q.order_by(Member.created_at.desc())
+            .limit(limit)
+            .offset(offset)
+            .all()
+        )
+
+    @staticmethod
+    def count_filtered(
+        session: Session,
+        name: str | None = None,
+        email: str | None = None,
+        query: str | None = None
+    ) -> int:
+        """Count members matching filters."""
+        q = session.query(Member)
+        if query and query.strip():
+            pattern = f"%{query.strip()}%"
+            q = q.filter(
+                or_(Member.name.ilike(pattern), Member.email.ilike(pattern))
+            )
+        else:
+            if name:
+                q = q.filter(Member.name.ilike(f"%{name}%"))
+            if email:
+                q = q.filter(Member.email.ilike(f"%{email}%"))
+        return q.count()
+
 
 class BorrowRepository:
     """Repository for Borrow operations."""
@@ -424,6 +546,83 @@ class BorrowRepository:
             .offset(offset)
             .all()
         )
+
+    @staticmethod
+    def list_active_filtered(
+        session: Session,
+        query: str | None = None,
+        member_id: str | None = None,
+        limit: int = 100,
+        offset: int = 0
+    ) -> list[Borrow]:
+        """
+        List active borrows with optional query filter.
+
+        When query is provided, filters by book.title, member.name,
+        member.email, copy_id, copy_number, status (OR, case-insensitive).
+        """
+        from sqlalchemy.orm import joinedload
+        q = (
+            session.query(Borrow)
+            .options(
+                joinedload(Borrow.copy).joinedload(BookCopy.book),
+                joinedload(Borrow.member)
+            )
+            .join(BookCopy, Borrow.copy_id == BookCopy.id)
+            .join(Book, BookCopy.book_id == Book.id)
+            .join(Member, Borrow.member_id == Member.id)
+            .filter(Borrow.status == "active")
+        )
+        if member_id:
+            q = q.filter(Borrow.member_id == member_id)
+        if query and query.strip():
+            pattern = f"%{query.strip()}%"
+            q = q.filter(
+                or_(
+                    Book.title.ilike(pattern),
+                    Member.name.ilike(pattern),
+                    Member.email.ilike(pattern),
+                    Borrow.copy_id.ilike(pattern),
+                    BookCopy.copy_number.ilike(pattern),
+                    Borrow.status.ilike(pattern),
+                )
+            )
+        return list(
+            q.order_by(Borrow.borrowed_at.desc())
+            .limit(limit)
+            .offset(offset)
+            .all()
+        )
+
+    @staticmethod
+    def count_active_filtered(
+        session: Session,
+        query: str | None = None,
+        member_id: str | None = None
+    ) -> int:
+        """Count active borrows matching optional query filter."""
+        q = (
+            session.query(Borrow)
+            .join(BookCopy, Borrow.copy_id == BookCopy.id)
+            .join(Book, BookCopy.book_id == Book.id)
+            .join(Member, Borrow.member_id == Member.id)
+            .filter(Borrow.status == "active")
+        )
+        if member_id:
+            q = q.filter(Borrow.member_id == member_id)
+        if query and query.strip():
+            pattern = f"%{query.strip()}%"
+            q = q.filter(
+                or_(
+                    Book.title.ilike(pattern),
+                    Member.name.ilike(pattern),
+                    Member.email.ilike(pattern),
+                    Borrow.copy_id.ilike(pattern),
+                    BookCopy.copy_number.ilike(pattern),
+                    Borrow.status.ilike(pattern),
+                )
+            )
+        return q.count()
 
     @staticmethod
     def count_active(session: Session, member_id: str | None = None) -> int:

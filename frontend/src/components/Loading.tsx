@@ -1,14 +1,7 @@
 'use client';
 
+import styles from '@/styles/Loading.module.css';
+
 export default function Loading() {
-  return (
-    <p
-      style={{
-        color: 'var(--muted)',
-        fontSize: 'var(--font-size-base)',
-      }}
-    >
-      Loading...
-    </p>
-  );
+  return <p className={styles.wrapper}>Loading...</p>;
 }

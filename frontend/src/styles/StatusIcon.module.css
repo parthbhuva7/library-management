@@ -1,0 +1,29 @@
+.statusIcon {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.statusIcon.active {
+  color: #16a34a;
+}
+
+.statusIcon.returned {
+  color: #6b7280;
+}
+
+.statusIcon.available {
+  color: #16a34a;
+}
+
+.statusIcon.borrowed {
+  color: #d97706;
+}
+
+.statusIcon.overdue {
+  color: #dc2626;
+}
+
+.fallback {
+  font-size: inherit;
+}

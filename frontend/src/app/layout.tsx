@@ -1,5 +1,6 @@
 import './globals.css';
 import AppShell from '@/components/AppShell';
+import ErrorBoundary from '@/components/ErrorBoundary';
 
 export const metadata = {
   title: 'Library Management',
@@ -14,7 +15,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <AppShell>{children}</AppShell>
+        <ErrorBoundary>
+          <AppShell>{children}</AppShell>
+        </ErrorBoundary>
       </body>
     </html>
   );

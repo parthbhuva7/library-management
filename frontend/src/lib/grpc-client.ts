@@ -1,34 +1,48 @@
 /**
  * gRPC-Web client wrapper with auth metadata support.
- * Uses /grpc-web path (rewritten to Envoy proxy) for all calls.
+ * Requires NEXT_PUBLIC_GRPC_BASE_URL to be set. Fails at first use if not configured.
  */
 
 import type { Metadata } from 'grpc-web';
 import { LibraryServiceClient } from '@/generated';
 
-const GRPC_WEB_BASE =
-  typeof window !== 'undefined'
-    ? '' // Browser: use relative path, Next.js rewrites /grpc-web
-    : 'http://localhost:8080';
+function get_grpc_base(): string {
+  const url = process.env.NEXT_PUBLIC_GRPC_BASE_URL;
+  if (url === undefined || url === null) {
+    throw new Error(
+      'NEXT_PUBLIC_GRPC_BASE_URL must be set. ' +
+        'Add it to .env.local (e.g. NEXT_PUBLIC_GRPC_BASE_URL=http://localhost:8080)'
+    );
+  }
+  const trimmed = String(url).trim();
+  if (trimmed === '') {
+    throw new Error(
+      'NEXT_PUBLIC_GRPC_BASE_URL must not be empty. ' +
+        'Set it in .env.local (e.g. NEXT_PUBLIC_GRPC_BASE_URL=http://localhost:8080)'
+    );
+  }
+  return trimmed;
+}
 
 let clientInstance: LibraryServiceClient | null = null;
 
 /**
  * Get the base URL for gRPC-Web requests.
- * In browser, returns empty string so requests use same origin + path.
+ * Throws if NEXT_PUBLIC_GRPC_BASE_URL is not set.
  */
 export function get_grpc_web_base(): string {
-  return GRPC_WEB_BASE;
+  return get_grpc_base();
 }
 
 /**
  * Get singleton LibraryServiceClient.
+ * Throws if NEXT_PUBLIC_GRPC_BASE_URL is not set.
  */
 export function get_library_client(): LibraryServiceClient {
   if (!clientInstance) {
-    const base = get_grpc_web_base();
-    const host = base || '/grpc-web';
-    clientInstance = new LibraryServiceClient(host, null, { format: 'binary' });
+    const host = get_grpc_base();
+    const normalized = host.endsWith('/') ? host.slice(0, -1) : host;
+    clientInstance = new LibraryServiceClient(normalized, null, { format: 'binary' });
   }
   return clientInstance;
 }

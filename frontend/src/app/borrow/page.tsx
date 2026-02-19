@@ -2,31 +2,16 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import {
-  BorrowBookRequest,
-  ListAvailableCopiesRequest,
-  ListMembersRequest,
-  PaginationRequest,
-  AvailableCopy,
-  Member,
-} from '@/generated';
-import { get_library_client, get_auth_metadata } from '@/lib/grpc-client';
+import { AvailableCopy, Member } from '@/generated';
+import { LibraryService } from '@/services/library-service';
 import { handle_grpc_error, is_auth_error } from '@/lib/grpc-error-handler';
+import { validate_required } from '@/lib/form-validation';
 import Button from '@/components/Button';
 import ErrorMessage from '@/components/ErrorMessage';
 import PageTitle from '@/components/PageTitle';
 import BackLink from '@/components/BackLink';
 import Loading from '@/components/Loading';
-
-const SELECT_STYLE: React.CSSProperties = {
-  display: 'block',
-  width: '100%',
-  maxWidth: 300,
-  padding: 'var(--space-2) var(--space-3)',
-  fontSize: 'var(--font-size-base)',
-  border: '1px solid var(--border)',
-  borderRadius: 4,
-};
+import SelectField from '@/components/SelectField';
 
 export default function BorrowPage() {
   const [copyId, setCopyId] = useState('');
@@ -34,7 +19,9 @@ export default function BorrowPage() {
   const [copies, setCopies] = useState<AvailableCopy[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -43,20 +30,9 @@ export default function BorrowPage() {
       window.location.href = '/login';
       return;
     }
-    const client = get_library_client();
-    const meta = get_auth_metadata();
-    const pagination = new PaginationRequest();
-    pagination.setPage(1);
-    pagination.setLimit(100);
-
-    const copiesReq = new ListAvailableCopiesRequest();
-    copiesReq.setPagination(pagination);
-    const membersReq = new ListMembersRequest();
-    membersReq.setPagination(pagination);
-
     Promise.all([
-      client.listAvailableCopies(copiesReq, meta),
-      client.listMembers(membersReq, meta),
+      LibraryService.listAvailableCopies(1, 100),
+      LibraryService.listMembers(1, 100),
     ])
       .then(([copiesResp, membersResp]) => {
         setCopies(copiesResp.getCopiesList());
@@ -75,12 +51,19 @@ export default function BorrowPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    const request = new BorrowBookRequest();
-    request.setCopyId(copyId);
-    request.setMemberId(memberId);
-    const client = get_library_client();
+    const errors: Record<string, string> = {};
+    const copyErr = validate_required(copyId, 'Copy');
+    const memberErr = validate_required(memberId, 'Member');
+    if (copyErr) errors.copyId = copyErr;
+    if (memberErr) errors.memberId = memberErr;
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      return;
+    }
+    setFieldErrors({});
+    setSubmitting(true);
     try {
-      await client.borrowBook(request, get_auth_metadata());
+      await LibraryService.borrowBook(copyId, memberId);
       router.push('/borrowings');
     } catch (err) {
       if (is_auth_error(err)) {
@@ -88,6 +71,8 @@ export default function BorrowPage() {
         return;
       }
       setError(handle_grpc_error(err));
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -105,68 +90,44 @@ export default function BorrowPage() {
       <BackLink href="/borrowings" />
       <PageTitle>Record Borrow</PageTitle>
       <form onSubmit={handleSubmit}>
-        <div style={{ marginBottom: 'var(--space-4)' }}>
-          <label
-            htmlFor="copyId"
-            style={{
-              display: 'block',
-              marginBottom: 'var(--space-2)',
-              fontSize: 'var(--font-size-base)',
-            }}
-          >
-            Copy
-          </label>
-          <select
-            id="copyId"
-            name="copyId"
-            value={copyId}
-            onChange={(e) => setCopyId(e.target.value)}
-            required
-            disabled={noCopies}
-            style={SELECT_STYLE}
-          >
-            <option value="">
-              {noCopies ? 'No copies available' : 'Select a copy'}
-            </option>
-            {copies.map((c) => (
-              <option key={c.getId()} value={c.getId()}>
-                {c.getBookTitle()} - {c.getCopyNumber()}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div style={{ marginBottom: 'var(--space-4)' }}>
-          <label
-            htmlFor="memberId"
-            style={{
-              display: 'block',
-              marginBottom: 'var(--space-2)',
-              fontSize: 'var(--font-size-base)',
-            }}
-          >
-            Member
-          </label>
-          <select
-            id="memberId"
-            name="memberId"
-            value={memberId}
-            onChange={(e) => setMemberId(e.target.value)}
-            required
-            disabled={noMembers}
-            style={SELECT_STYLE}
-          >
-            <option value="">
-              {noMembers ? 'No members yet' : 'Select a member'}
-            </option>
-            {members.map((m) => (
-              <option key={m.getId()} value={m.getId()}>
-                {m.getName()}
-              </option>
-            ))}
-          </select>
-        </div>
+        <SelectField
+          label="Copy"
+          name="copyId"
+          value={copyId}
+          onChange={(v) => {
+            setCopyId(v);
+            setFieldErrors((prev) => ({ ...prev, copyId: '' }));
+          }}
+          options={copies.map((c) => ({
+            value: c.getId(),
+            label: `${c.getBookTitle()} - ${c.getCopyNumber()}`,
+          }))}
+          placeholder={noCopies ? 'No copies available' : 'Select a copy'}
+          disabled={noCopies}
+          error={fieldErrors.copyId}
+        />
+        <SelectField
+          label="Member"
+          name="memberId"
+          value={memberId}
+          onChange={(v) => {
+            setMemberId(v);
+            setFieldErrors((prev) => ({ ...prev, memberId: '' }));
+          }}
+          options={members.map((m) => ({
+            value: m.getId(),
+            label: m.getName(),
+          }))}
+          placeholder={noMembers ? 'No members yet' : 'Select a member'}
+          disabled={noMembers}
+          error={fieldErrors.memberId}
+        />
         {error && <ErrorMessage message={error} />}
-        <Button type="submit" disabled={!canSubmit || noCopies || noMembers}>
+        <Button
+          type="submit"
+          disabled={!canSubmit || noCopies || noMembers}
+          loading={submitting}
+        >
           Borrow
         </Button>
       </form>

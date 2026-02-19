@@ -1,11 +1,12 @@
 'use client';
 
 import Link from 'next/link';
+import styles from '@/styles/EmptyState.module.css';
 
 interface EmptyStateProps {
   message: string;
-  actionHref: string;
-  actionLabel: string;
+  actionHref?: string;
+  actionLabel?: string;
 }
 
 export default function EmptyState({
@@ -14,23 +15,16 @@ export default function EmptyState({
   actionLabel,
 }: EmptyStateProps) {
   return (
-    <p
-      style={{
-        color: 'var(--muted)',
-        fontSize: 'var(--font-size-base)',
-        marginTop: 'var(--space-5)',
-      }}
-    >
-      {message}{' '}
-      <Link
-        href={actionHref}
-        style={{
-          color: 'var(--foreground)',
-          textDecoration: 'underline',
-        }}
-      >
-        {actionLabel}
-      </Link>
+    <p className={styles.wrapper}>
+      {message}
+      {actionHref && actionLabel && (
+        <>
+          {' '}
+          <Link href={actionHref} className={styles.link}>
+            {actionLabel}
+          </Link>
+        </>
+      )}
     </p>
   );
 }

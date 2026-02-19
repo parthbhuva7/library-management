@@ -1,0 +1,29 @@
+.nav {
+  display: flex;
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.link {
+  color: var(--foreground);
+  text-decoration: none;
+  font-size: var(--font-size-base);
+}
+
+.linkMuted {
+  color: var(--muted);
+  text-decoration: none;
+  font-size: var(--font-size-base);
+}
+
+.logoutButton {
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: var(--font-size-base);
+  padding: 0;
+}

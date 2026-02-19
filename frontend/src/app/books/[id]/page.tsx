@@ -1,29 +1,28 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter, useParams } from 'next/navigation';
-import {
-  UpdateBookRequest,
-  ListBooksRequest,
-  PaginationRequest,
-} from '@/generated';
-import { get_library_client, get_auth_metadata } from '@/lib/grpc-client';
-import { handle_grpc_error, is_auth_error } from '@/lib/grpc-error-handler';
-import FormField from '@/components/FormField';
-import Button from '@/components/Button';
-import ErrorMessage from '@/components/ErrorMessage';
-import Loading from '@/components/Loading';
-import PageTitle from '@/components/PageTitle';
+import { useParams } from 'next/navigation';
+import { LibraryService } from '@/services/library-service';
+import { handle_grpc_error, is_auth_error, is_not_found_error } from '@/lib/grpc-error-handler';
 import BackLink from '@/components/BackLink';
+import PageTitle from '@/components/PageTitle';
+import PageLink from '@/components/PageLink';
+import Button from '@/components/Button';
+import Loading from '@/components/Loading';
+import ErrorMessage from '@/components/ErrorMessage';
+import CopiesModal from '@/components/CopiesModal';
+import styles from '@/styles/Page.module.css';
 
-export default function EditBookPage() {
+export default function BookDetailPage() {
   const params = useParams();
-  const router = useRouter();
   const id = params?.id as string;
   const [title, setTitle] = useState('');
   const [author, setAuthor] = useState('');
-  const [error, setError] = useState('');
+  const [copyCount, setCopyCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [notFound, setNotFound] = useState(false);
+  const [showCopiesModal, setShowCopiesModal] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -32,19 +31,16 @@ export default function EditBookPage() {
       window.location.href = '/login';
       return;
     }
-    const req = new ListBooksRequest();
-    const pagination = new PaginationRequest();
-    pagination.setPage(1);
-    pagination.setLimit(1000);
-    req.setPagination(pagination);
-    const client = get_library_client();
-    client
-      .listBooks(req, get_auth_metadata())
+    setLoading(true);
+    setError('');
+    setNotFound(false);
+    LibraryService.getBook(id)
       .then((resp) => {
-        const book = resp.getBooksList().find((b) => b.getId() === id);
+        const book = resp.getBook();
         if (book) {
           setTitle(book.getTitle());
           setAuthor(book.getAuthor());
+          setCopyCount(book.getCopyCount());
         }
       })
       .catch((err) => {
@@ -52,55 +48,49 @@ export default function EditBookPage() {
           window.location.href = '/login';
           return;
         }
-        setError(handle_grpc_error(err));
+        if (is_not_found_error(err)) {
+          setNotFound(true);
+          setError(handle_grpc_error(err));
+        } else {
+          setError(handle_grpc_error(err));
+        }
       })
       .finally(() => setLoading(false));
   }, [id]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    const request = new UpdateBookRequest();
-    request.setId(id);
-    request.setTitle(title);
-    request.setAuthor(author);
-    const client = get_library_client();
-    try {
-      await client.updateBook(request, get_auth_metadata());
-      router.push('/books');
-    } catch (err) {
-      if (is_auth_error(err)) {
-        window.location.href = '/login';
-        return;
-      }
-      setError(handle_grpc_error(err));
-    }
-  };
-
   if (loading) return <Loading />;
+
+  if (notFound || error) {
+    return (
+      <div>
+        <BackLink href="/books" />
+        <ErrorMessage message={error || 'Book not found'} />
+      </div>
+    );
+  }
 
   return (
     <div>
       <BackLink href="/books" />
-      <PageTitle>Edit Book</PageTitle>
-      <form onSubmit={handleSubmit}>
-        <FormField
-          label="Title"
-          name="title"
-          value={title}
-          onChange={setTitle}
-          required
+      <PageTitle>{title}</PageTitle>
+      <div className={styles.paragraph}>
+        <strong>Author:</strong> {author}
+      </div>
+      <div className={styles.paragraph}>
+        <strong>Copies:</strong> {copyCount}
+      </div>
+      <div className={styles.actions}>
+        <PageLink href={`/books/${id}/edit`}>Edit</PageLink>
+        {' | '}
+        <Button onClick={() => setShowCopiesModal(true)}>View Copies</Button>
+      </div>
+      {showCopiesModal && (
+        <CopiesModal
+          bookId={id}
+          bookTitle={title}
+          onClose={() => setShowCopiesModal(false)}
         />
-        <FormField
-          label="Author"
-          name="author"
-          value={author}
-          onChange={setAuthor}
-          required
-        />
-        {error && <ErrorMessage message={error} />}
-        <Button type="submit">Save</Button>
-      </form>
+      )}
     </div>
   );
 }
