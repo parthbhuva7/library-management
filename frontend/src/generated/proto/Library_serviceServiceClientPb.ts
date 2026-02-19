@@ -169,6 +169,49 @@ export class LibraryServiceClient {
     this.methodDescriptorUpdateBook);
   }
 
+  methodDescriptorGetBook = new grpcWeb.MethodDescriptor(
+    '/library.LibraryService/GetBook',
+    grpcWeb.MethodType.UNARY,
+    proto_library_pb.GetBookRequest,
+    proto_library_pb.GetBookResponse,
+    (request: proto_library_pb.GetBookRequest) => {
+      return request.serializeBinary();
+    },
+    proto_library_pb.GetBookResponse.deserializeBinary
+  );
+
+  getBook(
+    request: proto_library_pb.GetBookRequest,
+    metadata?: grpcWeb.Metadata | null): Promise<proto_library_pb.GetBookResponse>;
+
+  getBook(
+    request: proto_library_pb.GetBookRequest,
+    metadata: grpcWeb.Metadata | null,
+    callback: (err: grpcWeb.RpcError,
+               response: proto_library_pb.GetBookResponse) => void): grpcWeb.ClientReadableStream<proto_library_pb.GetBookResponse>;
+
+  getBook(
+    request: proto_library_pb.GetBookRequest,
+    metadata?: grpcWeb.Metadata | null,
+    callback?: (err: grpcWeb.RpcError,
+               response: proto_library_pb.GetBookResponse) => void) {
+    if (callback !== undefined) {
+      return this.client_.rpcCall(
+        this.hostname_ +
+          '/library.LibraryService/GetBook',
+        request,
+        metadata || {},
+        this.methodDescriptorGetBook,
+        callback);
+    }
+    return this.client_.unaryCall(
+    this.hostname_ +
+      '/library.LibraryService/GetBook',
+    request,
+    metadata || {},
+    this.methodDescriptorGetBook);
+  }
+
   methodDescriptorListBooks = new grpcWeb.MethodDescriptor(
     '/library.LibraryService/ListBooks',
     grpcWeb.MethodType.UNARY,
@@ -296,6 +339,49 @@ export class LibraryServiceClient {
     request,
     metadata || {},
     this.methodDescriptorUpdateMember);
+  }
+
+  methodDescriptorGetMember = new grpcWeb.MethodDescriptor(
+    '/library.LibraryService/GetMember',
+    grpcWeb.MethodType.UNARY,
+    proto_library_pb.GetMemberRequest,
+    proto_library_pb.GetMemberResponse,
+    (request: proto_library_pb.GetMemberRequest) => {
+      return request.serializeBinary();
+    },
+    proto_library_pb.GetMemberResponse.deserializeBinary
+  );
+
+  getMember(
+    request: proto_library_pb.GetMemberRequest,
+    metadata?: grpcWeb.Metadata | null): Promise<proto_library_pb.GetMemberResponse>;
+
+  getMember(
+    request: proto_library_pb.GetMemberRequest,
+    metadata: grpcWeb.Metadata | null,
+    callback: (err: grpcWeb.RpcError,
+               response: proto_library_pb.GetMemberResponse) => void): grpcWeb.ClientReadableStream<proto_library_pb.GetMemberResponse>;
+
+  getMember(
+    request: proto_library_pb.GetMemberRequest,
+    metadata?: grpcWeb.Metadata | null,
+    callback?: (err: grpcWeb.RpcError,
+               response: proto_library_pb.GetMemberResponse) => void) {
+    if (callback !== undefined) {
+      return this.client_.rpcCall(
+        this.hostname_ +
+          '/library.LibraryService/GetMember',
+        request,
+        metadata || {},
+        this.methodDescriptorGetMember,
+        callback);
+    }
+    return this.client_.unaryCall(
+    this.hostname_ +
+      '/library.LibraryService/GetMember',
+    request,
+    metadata || {},
+    this.methodDescriptorGetMember);
   }
 
   methodDescriptorListMembers = new grpcWeb.MethodDescriptor(

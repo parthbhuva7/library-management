@@ -1,0 +1,36 @@
+.wrapper {
+  padding: var(--space-5);
+  text-align: center;
+}
+
+.title {
+  margin-bottom: var(--space-4);
+}
+
+.message {
+  margin-bottom: var(--space-4);
+  color: var(--muted);
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-4);
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.retryButton {
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--font-size-base);
+  background: var(--foreground);
+  color: var(--background);
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.homeLink {
+  padding: var(--space-2) var(--space-4);
+  color: var(--foreground);
+  text-decoration: underline;
+}

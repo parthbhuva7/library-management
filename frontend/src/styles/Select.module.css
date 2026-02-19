@@ -1,0 +1,26 @@
+.wrapper {
+  margin-bottom: var(--space-4);
+}
+
+.label {
+  display: block;
+  margin-bottom: var(--space-2);
+  font-size: var(--font-size-base);
+}
+
+.select {
+  display: block;
+  width: 100%;
+  max-width: 300px;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--font-size-base);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.error {
+  display: block;
+  margin-top: var(--space-1);
+  font-size: var(--font-size-sm);
+  color: var(--error);
+}

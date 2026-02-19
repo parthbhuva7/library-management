@@ -2,35 +2,24 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import {
-  ReturnBookRequest,
-  ListBorrowingsRequest,
-  PaginationRequest,
-  Borrow,
-} from '@/generated';
-import { get_library_client, get_auth_metadata } from '@/lib/grpc-client';
+import { Borrow } from '@/generated';
+import { LibraryService } from '@/services/library-service';
 import { handle_grpc_error, is_auth_error } from '@/lib/grpc-error-handler';
+import { validate_required } from '@/lib/form-validation';
 import Button from '@/components/Button';
 import ErrorMessage from '@/components/ErrorMessage';
 import PageTitle from '@/components/PageTitle';
 import BackLink from '@/components/BackLink';
 import Loading from '@/components/Loading';
-
-const SELECT_STYLE: React.CSSProperties = {
-  display: 'block',
-  width: '100%',
-  maxWidth: 300,
-  padding: 'var(--space-2) var(--space-3)',
-  fontSize: 'var(--font-size-base)',
-  border: '1px solid var(--border)',
-  borderRadius: 4,
-};
+import SelectField from '@/components/SelectField';
 
 export default function ReturnPage() {
   const [copyId, setCopyId] = useState('');
   const [borrows, setBorrows] = useState<Borrow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -39,14 +28,7 @@ export default function ReturnPage() {
       window.location.href = '/login';
       return;
     }
-    const req = new ListBorrowingsRequest();
-    const pagination = new PaginationRequest();
-    pagination.setPage(1);
-    pagination.setLimit(100);
-    req.setPagination(pagination);
-    const client = get_library_client();
-    client
-      .listBorrowings(req, get_auth_metadata())
+    LibraryService.listBorrowings(1, 100)
       .then((resp) => setBorrows(resp.getBorrowsList()))
       .catch((err) => {
         if (is_auth_error(err)) {
@@ -61,11 +43,15 @@ export default function ReturnPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    const request = new ReturnBookRequest();
-    request.setCopyId(copyId);
-    const client = get_library_client();
+    const copyErr = validate_required(copyId, 'Copy');
+    if (copyErr) {
+      setFieldErrors({ copyId: copyErr });
+      return;
+    }
+    setFieldErrors({});
+    setSubmitting(true);
     try {
-      await client.returnBook(request, get_auth_metadata());
+      await LibraryService.returnBook(copyId);
       router.push('/borrowings');
     } catch (err) {
       if (is_auth_error(err)) {
@@ -73,6 +59,8 @@ export default function ReturnPage() {
         return;
       }
       setError(handle_grpc_error(err));
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -89,43 +77,33 @@ export default function ReturnPage() {
         <p>No books currently borrowed.</p>
       ) : (
         <form onSubmit={handleSubmit}>
-          <div style={{ marginBottom: 'var(--space-4)' }}>
-            <label
-              htmlFor="copyId"
-              style={{
-                display: 'block',
-                marginBottom: 'var(--space-2)',
-                fontSize: 'var(--font-size-base)',
-              }}
-            >
-              Copy to return
-            </label>
-            <select
-              id="copyId"
-              name="copyId"
-              value={copyId}
-              onChange={(e) => setCopyId(e.target.value)}
-              required
-              style={SELECT_STYLE}
-            >
-              <option value="">Select a copy</option>
-              {borrows.map((b) => {
-                const book = b.getBook();
-                const copy = b.getCopy();
-                const member = b.getMember();
-                const bookTitle = book ? book.getTitle() : 'Book';
-                const copyNum = copy ? copy.getCopyNumber() : b.getCopyId();
-                const memberName = member ? member.getName() : 'Member';
-                return (
-                  <option key={b.getId()} value={b.getCopyId()}>
-                    {bookTitle} - {copyNum} - {memberName}
-                  </option>
-                );
-              })}
-            </select>
-          </div>
+          <SelectField
+            label="Copy to return"
+            name="copyId"
+            value={copyId}
+            onChange={(v) => {
+              setCopyId(v);
+              setFieldErrors((prev) => ({ ...prev, copyId: '' }));
+            }}
+            options={borrows.map((b) => {
+              const book = b.getBook();
+              const copy = b.getCopy();
+              const member = b.getMember();
+              const bookTitle = book ? book.getTitle() : 'Book';
+              const copyNum = copy ? copy.getCopyNumber() : b.getCopyId();
+              const memberName = member ? member.getName() : 'Member';
+              return {
+                value: b.getCopyId(),
+                label: `${bookTitle} - ${copyNum} - ${memberName}`,
+              };
+            })}
+            placeholder="Select a copy"
+            error={fieldErrors.copyId}
+          />
           {error && <ErrorMessage message={error} />}
-          <Button type="submit">Return</Button>
+          <Button type="submit" loading={submitting}>
+            Return
+          </Button>
         </form>
       )}
     </div>

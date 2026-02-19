@@ -9,8 +9,8 @@ from app.library.repository import (
     MemberRepository,
     BorrowRepository,
 )
-
-MAX_PAGE_LIMIT = 100
+from util.exceptions import ConflictError, ResourceNotFound, ValidationError
+from util.validators import validate_ulid, clamp_pagination
 
 
 class LibraryService:
@@ -40,20 +40,70 @@ class LibraryService:
         )
 
     @staticmethod
+    def get_book_by_id(session: Session, book_id: str) -> tuple:
+        """
+        Get a book by ID with copy count.
+
+        Returns:
+            Tuple of (book, copy_count).
+
+        Raises:
+            ValidationError: If book_id is malformed.
+            ResourceNotFound: If book does not exist.
+        """
+        validate_ulid(book_id, "book_id")
+        book = BookRepository.find_by_id(session, book_id)
+        if not book:
+            raise ResourceNotFound("Book not found")
+        copy_count = BookCopyRepository.count_by_book_id(session, book_id)
+        return book, copy_count
+
+    @staticmethod
+    def get_member_by_id(session: Session, member_id: str):
+        """
+        Get a member by ID.
+
+        Raises:
+            ValidationError: If member_id is malformed.
+            ResourceNotFound: If member does not exist.
+        """
+        validate_ulid(member_id, "member_id")
+        member = MemberRepository.find_by_id(session, member_id)
+        if not member:
+            raise ResourceNotFound("Member not found")
+        return member
+
+    @staticmethod
     def list_books(
         session: Session,
         page: int = 1,
-        limit: int = 100
+        limit: int = 100,
+        title: str | None = None,
+        author: str | None = None,
+        isbn: str | None = None,
+        query: str | None = None
     ) -> tuple[list[tuple], int]:
         """
         List books with pagination and copy counts.
 
-        Returns ((book, copy_count), total) to avoid N+1 queries.
+        Supports optional filters (case-insensitive contains).
+        When query is provided, searches title OR author OR isbn.
+        When all filters empty/null, returns all books.
+        Pagination is clamped to valid range.
         """
-        limit = min(limit, MAX_PAGE_LIMIT)
+        page, limit = clamp_pagination(page, limit)
         offset = (page - 1) * limit
-        books = BookRepository.list_all(session, limit, offset)
-        total = BookRepository.count(session)
+        has_filter = bool(title or author or isbn or (query and query.strip()))
+        if has_filter:
+            books = BookRepository.list_filtered(
+                session, title, author, isbn, query, limit, offset
+            )
+            total = BookRepository.count_filtered(
+                session, title, author, isbn, query
+            )
+        else:
+            books = BookRepository.list_all(session, limit, offset)
+            total = BookRepository.count(session)
         if not books:
             return [], total
         book_ids = [b.id for b in books]
@@ -87,13 +137,32 @@ class LibraryService:
     def list_members(
         session: Session,
         page: int = 1,
-        limit: int = 100
+        limit: int = 100,
+        name: str | None = None,
+        email: str | None = None,
+        query: str | None = None
     ) -> tuple[list, int]:
-        """List members with pagination."""
-        limit = min(limit, MAX_PAGE_LIMIT)
+        """
+        List members with pagination.
+
+        Supports optional filters (case-insensitive contains).
+        When query is provided, searches name OR email.
+        When all filters empty/null, returns all members.
+        Pagination is clamped to valid range.
+        """
+        page, limit = clamp_pagination(page, limit)
         offset = (page - 1) * limit
-        members = MemberRepository.list_all(session, limit, offset)
-        total = MemberRepository.count(session)
+        has_filter = bool(name or email or (query and query.strip()))
+        if has_filter:
+            members = MemberRepository.list_filtered(
+                session, name, email, query, limit, offset
+            )
+            total = MemberRepository.count_filtered(
+                session, name, email, query
+            )
+        else:
+            members = MemberRepository.list_all(session, limit, offset)
+            total = MemberRepository.count(session)
         return members, total
 
     @staticmethod
@@ -101,23 +170,25 @@ class LibraryService:
         session: Session,
         copy_id: str,
         member_id: str
-    ) -> tuple[object | None, str | None]:
+    ):
         """
         Borrow a book copy. Uses pessimistic locking.
 
-        Returns (borrow, error_message). Error is None on success.
+        Raises:
+            ResourceNotFound: If copy or member not found.
+            ConflictError: If book not available.
         """
         copy = BookCopyRepository.find_by_id_with_lock(session, copy_id)
         if not copy:
-            return None, "Copy not found"
+            raise ResourceNotFound("Copy not found")
         if copy.status != "available":
-            return None, "Book not available"
+            raise ConflictError("Book not available")
         member = MemberRepository.find_by_id(session, member_id)
         if not member:
-            return None, "Member not found"
+            raise ResourceNotFound("Member not found")
         active = BorrowRepository.find_active_by_copy_id(session, copy_id)
         if active:
-            return None, "Book not available"
+            raise ConflictError("Book not available")
         borrow = BorrowRepository.create(
             session, copy_id, member_id, commit=False
         )
@@ -126,48 +197,60 @@ class LibraryService:
         )
         session.commit()
         session.refresh(borrow)
-        return borrow, None
+        return borrow
 
     @staticmethod
-    def return_book(
-        session: Session,
-        copy_id: str
-    ) -> tuple[object | None, str | None]:
+    def return_book(session: Session, copy_id: str):
         """
         Return a book by copy id.
 
-        Returns (borrow, error_message). Error is None on success.
+        Raises:
+            ConflictError: If no active borrow for this copy.
         """
         active = BorrowRepository.find_active_by_copy_id(session, copy_id)
         if not active:
-            return None, "No active borrow for this copy"
+            raise ConflictError("No active borrow for this copy")
         BorrowRepository.mark_returned(session, active.id, commit=False)
         BookCopyRepository.update_status(
             session, copy_id, "available", commit=False
         )
         session.commit()
         session.refresh(active)
-        return active, None
+        return active
 
     @staticmethod
     def list_borrowings(
         session: Session,
         member_id: str | None = None,
         page: int = 1,
-        limit: int = 100
+        limit: int = 100,
+        query: str | None = None
     ) -> tuple[list, int]:
-        """List borrowings, optionally filtered by member."""
-        limit = min(limit, MAX_PAGE_LIMIT)
+        """
+        List borrowings, optionally filtered by member and search query.
+
+        When query is provided, filters by book.title, member.name,
+        member.email, copy_id, copy_number, status.
+        """
+        page, limit = clamp_pagination(page, limit)
         offset = (page - 1) * limit
-        total = BorrowRepository.count_active(session, member_id)
-        if member_id:
-            borrows = BorrowRepository.list_active_by_member(
-                session, member_id, limit, offset
+        if query and query.strip():
+            borrows = BorrowRepository.list_active_filtered(
+                session, query, member_id, limit, offset
+            )
+            total = BorrowRepository.count_active_filtered(
+                session, query, member_id
             )
         else:
-            borrows = BorrowRepository.list_all_active(
-                session, limit, offset
-            )
+            total = BorrowRepository.count_active(session, member_id)
+            if member_id:
+                borrows = BorrowRepository.list_active_by_member(
+                    session, member_id, limit, offset
+                )
+            else:
+                borrows = BorrowRepository.list_all_active(
+                    session, limit, offset
+                )
         return borrows, total
 
     @staticmethod
@@ -175,24 +258,25 @@ class LibraryService:
         session: Session,
         book_id: str,
         copy_number: str
-    ) -> tuple[object | None, str | None]:
+    ):
         """
         Create a new book copy.
 
-        Returns (copy, error_message). Error is None on success.
+        Raises:
+            ResourceNotFound: If book not found.
+            ConflictError: If copy number already exists for this book.
         """
         book = BookRepository.find_by_id(session, book_id)
         if not book:
-            return None, "Book not found"
+            raise ResourceNotFound("Book not found")
         existing = BookCopyRepository.find_by_book_and_copy_number(
             session, book_id, copy_number
         )
         if existing:
-            return None, "Copy number already exists for this book"
-        copy = BookCopyRepository.create(
+            raise ConflictError("Copy number already exists for this book")
+        return BookCopyRepository.create(
             session, book_id, copy_number, status="available"
         )
-        return copy, None
 
     @staticmethod
     def list_available_copies(
@@ -201,7 +285,7 @@ class LibraryService:
         limit: int = 100
     ) -> tuple[list, int]:
         """List available copies with book info."""
-        limit = min(limit, MAX_PAGE_LIMIT)
+        page, limit = clamp_pagination(page, limit)
         offset = (page - 1) * limit
         rows = BookCopyRepository.list_all_available_with_book(
             session, limit, offset
@@ -224,7 +308,7 @@ class LibraryService:
         book = BookRepository.find_by_id(session, book_id)
         if not book:
             return None, 0
-        limit = min(limit, MAX_PAGE_LIMIT)
+        page, limit = clamp_pagination(page, limit)
         offset = (page - 1) * limit
         copies = BookCopyRepository.list_by_book_id(
             session, book_id, limit, offset

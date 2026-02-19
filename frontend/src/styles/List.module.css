@@ -1,0 +1,61 @@
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: var(--list-grid-cols, repeat(1, minmax(0, 1fr)));
+  min-width: 400px;
+  overflow-x: auto;
+}
+
+.row {
+  display: contents;
+}
+
+.cellBase {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.headerCell {
+  padding: var(--space-2);
+  border-bottom: 1px solid var(--border);
+  font-size: var(--font-size-base);
+  font-weight: bold;
+  background-color: var(--border);
+  min-width: 0;
+  overflow: hidden;
+}
+
+.dataCell {
+  padding: var(--space-3) var(--space-2);
+  border-bottom: 1px solid var(--border);
+  font-size: var(--font-size-base);
+  min-width: 0;
+  overflow: hidden;
+}
+
+.dataCellNoTruncate {
+  overflow: hidden;
+}
+
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.alignLeft {
+  text-align: left;
+}
+
+.alignRight {
+  text-align: right;
+}
+
+.alignCenter {
+  text-align: center;
+}

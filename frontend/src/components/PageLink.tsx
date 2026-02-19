@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import styles from '@/styles/PageLink.module.css';
 
 interface PageLinkProps {
   href: string;
@@ -8,15 +9,5 @@ interface PageLinkProps {
 }
 
 export default function PageLink({ href, children }: PageLinkProps) {
-  return (
-    <Link
-      href={href}
-      style={{
-        color: 'var(--foreground)',
-        textDecoration: 'underline',
-      }}
-    >
-      {children}
-    </Link>
-  );
+  return <Link href={href} className={styles.link}>{children}</Link>;
 }

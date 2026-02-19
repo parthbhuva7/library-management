@@ -1,5 +1,9 @@
 'use client';
 
+import React from 'react';
+import { trim_whitespace } from '@/lib/form-validation';
+import styles from '@/styles/FormField.module.css';
+
 interface FormFieldProps {
   label: string;
   name: string;
@@ -8,6 +12,10 @@ interface FormFieldProps {
   onChange: (value: string) => void;
   required?: boolean;
   placeholder?: string;
+  error?: string;
+  onValidate?: (value: string) => string | null;
+  validateOnChange?: boolean;
+  onValidationChange?: (error: string | null) => void;
 }
 
 export default function FormField({
@@ -18,17 +26,24 @@ export default function FormField({
   onChange,
   required = false,
   placeholder,
+  error,
+  onValidate,
+  validateOnChange = false,
+  onValidationChange,
 }: FormFieldProps) {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const rawValue = e.target.value;
+    onChange(rawValue);
+    if (validateOnChange && onValidate && onValidationChange) {
+      const trimmed = trim_whitespace(rawValue);
+      const validationError = onValidate(trimmed);
+      onValidationChange(validationError);
+    }
+  };
+
   return (
-    <div style={{ marginBottom: 'var(--space-4)' }}>
-      <label
-        htmlFor={name}
-        style={{
-          display: 'block',
-          marginBottom: 'var(--space-2)',
-          fontSize: 'var(--font-size-base)',
-        }}
-      >
+    <div className={styles.wrapper}>
+      <label htmlFor={name} className={styles.label}>
         {label}
       </label>
       <input
@@ -36,19 +51,18 @@ export default function FormField({
         name={name}
         type={type}
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={handleChange}
         required={required}
         placeholder={placeholder}
-        style={{
-          display: 'block',
-          width: '100%',
-          maxWidth: 300,
-          padding: 'var(--space-2) var(--space-3)',
-          fontSize: 'var(--font-size-base)',
-          border: '1px solid var(--border)',
-          borderRadius: 4,
-        }}
+        className={styles.input}
+        aria-invalid={!!error}
+        aria-describedby={error ? `${name}-error` : undefined}
       />
+      {error && (
+        <span id={`${name}-error`} role="alert" className={styles.error}>
+          {error}
+        </span>
+      )}
     </div>
   );
 }

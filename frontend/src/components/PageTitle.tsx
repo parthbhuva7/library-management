@@ -1,18 +1,11 @@
 'use client';
 
+import styles from '@/styles/PageTitle.module.css';
+
 interface PageTitleProps {
   children: React.ReactNode;
 }
 
 export default function PageTitle({ children }: PageTitleProps) {
-  return (
-    <h1
-      style={{
-        marginBottom: 'var(--space-4)',
-        fontSize: 'var(--font-size-lg)',
-      }}
-    >
-      {children}
-    </h1>
-  );
+  return <h1 className={styles.title}>{children}</h1>;
 }

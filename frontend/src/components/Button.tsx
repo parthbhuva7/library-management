@@ -1,10 +1,14 @@
 'use client';
 
+import React from 'react';
+import styles from '@/styles/Button.module.css';
+
 interface ButtonProps {
   type?: 'button' | 'submit' | 'reset';
   children: React.ReactNode;
   onClick?: () => void;
   disabled?: boolean;
+  loading?: boolean;
 }
 
 export default function Button({
@@ -12,24 +16,17 @@ export default function Button({
   children,
   onClick,
   disabled = false,
+  loading = false,
 }: ButtonProps) {
+  const isDisabled = disabled || loading;
   return (
     <button
       type={type}
       onClick={onClick}
-      disabled={disabled}
-      style={{
-        padding: 'var(--space-2) var(--space-4)',
-        fontSize: 'var(--font-size-base)',
-        background: 'var(--foreground)',
-        color: 'var(--background)',
-        border: 'none',
-        borderRadius: 4,
-        cursor: disabled ? 'not-allowed' : 'pointer',
-        opacity: disabled ? 0.6 : 1,
-      }}
+      disabled={isDisabled}
+      className={styles.button}
     >
-      {children}
+      {loading ? 'Loading...' : children}
     </button>
   );
 }

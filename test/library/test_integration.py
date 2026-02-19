@@ -160,6 +160,217 @@ class TestLibraryIntegration(unittest.TestCase):
         )
         self.assertEqual(len(list_resp.borrows), 0)
 
+    def test_get_book_by_id_found(self):
+        """GetBook returns book with copy count when found."""
+        login_req = auth_pb2.LoginRequest(
+            username="staff1",
+            password="password123"
+        )
+        login_resp = self.handler.Login(login_req, self.ctx)
+        self.ctx.set_metadata(
+            "authorization",
+            f"Bearer {login_resp.token}"
+        )
+
+        book_resp = self.handler.CreateBook(
+            library_pb2.CreateBookRequest(
+                title="Get Test Book",
+                author="Author"
+            ),
+            self.ctx
+        )
+        book_id = book_resp.book.id
+
+        get_resp = self.handler.GetBook(
+            library_pb2.GetBookRequest(id=book_id),
+            self.ctx
+        )
+        self.assertIsNone(self.ctx._code)
+        self.assertIsNotNone(get_resp.book)
+        self.assertEqual(get_resp.book.id, book_id)
+        self.assertEqual(get_resp.book.title, "Get Test Book")
+        self.assertEqual(get_resp.book.copy_count, 0)
+
+    def test_get_book_by_id_not_found(self):
+        """GetBook returns NOT_FOUND when book does not exist."""
+        login_req = auth_pb2.LoginRequest(
+            username="staff1",
+            password="password123"
+        )
+        login_resp = self.handler.Login(login_req, self.ctx)
+        self.ctx.set_metadata(
+            "authorization",
+            f"Bearer {login_resp.token}"
+        )
+
+        fake_id = generate_ulid()
+        self.handler.GetBook(
+            library_pb2.GetBookRequest(id=fake_id),
+            self.ctx
+        )
+        self.assertEqual(self.ctx._code, grpc.StatusCode.NOT_FOUND)
+
+    def test_get_book_by_id_malformed_returns_invalid_argument(self):
+        """GetBook returns INVALID_ARGUMENT for malformed ID."""
+        login_req = auth_pb2.LoginRequest(
+            username="staff1",
+            password="password123"
+        )
+        login_resp = self.handler.Login(login_req, self.ctx)
+        self.ctx.set_metadata(
+            "authorization",
+            f"Bearer {login_resp.token}"
+        )
+
+        self.handler.GetBook(
+            library_pb2.GetBookRequest(id="invalid-id"),
+            self.ctx
+        )
+        self.assertEqual(self.ctx._code, grpc.StatusCode.INVALID_ARGUMENT)
+
+    def test_get_member_by_id_found(self):
+        """GetMember returns member when found."""
+        login_req = auth_pb2.LoginRequest(
+            username="staff1",
+            password="password123"
+        )
+        login_resp = self.handler.Login(login_req, self.ctx)
+        self.ctx.set_metadata(
+            "authorization",
+            f"Bearer {login_resp.token}"
+        )
+
+        member_resp = self.handler.CreateMember(
+            library_pb2.CreateMemberRequest(
+                name="Get Test Member",
+                email="getmember@example.com"
+            ),
+            self.ctx
+        )
+        member_id = member_resp.member.id
+
+        get_resp = self.handler.GetMember(
+            library_pb2.GetMemberRequest(id=member_id),
+            self.ctx
+        )
+        self.assertIsNone(self.ctx._code)
+        self.assertIsNotNone(get_resp.member)
+        self.assertEqual(get_resp.member.id, member_id)
+        self.assertEqual(get_resp.member.name, "Get Test Member")
+
+    def test_get_member_by_id_not_found(self):
+        """GetMember returns NOT_FOUND when member does not exist."""
+        login_req = auth_pb2.LoginRequest(
+            username="staff1",
+            password="password123"
+        )
+        login_resp = self.handler.Login(login_req, self.ctx)
+        self.ctx.set_metadata(
+            "authorization",
+            f"Bearer {login_resp.token}"
+        )
+
+        fake_id = generate_ulid()
+        self.handler.GetMember(
+            library_pb2.GetMemberRequest(id=fake_id),
+            self.ctx
+        )
+        self.assertEqual(self.ctx._code, grpc.StatusCode.NOT_FOUND)
+
+    def test_get_member_by_id_malformed_returns_invalid_argument(self):
+        """GetMember returns INVALID_ARGUMENT for malformed ID."""
+        login_req = auth_pb2.LoginRequest(
+            username="staff1",
+            password="password123"
+        )
+        login_resp = self.handler.Login(login_req, self.ctx)
+        self.ctx.set_metadata(
+            "authorization",
+            f"Bearer {login_resp.token}"
+        )
+
+        self.handler.GetMember(
+            library_pb2.GetMemberRequest(id="bad-id"),
+            self.ctx
+        )
+        self.assertEqual(self.ctx._code, grpc.StatusCode.INVALID_ARGUMENT)
+
+    def test_list_books_with_filter(self):
+        """ListBooks with title filter returns matching books."""
+        login_req = auth_pb2.LoginRequest(
+            username="staff1",
+            password="password123"
+        )
+        login_resp = self.handler.Login(login_req, self.ctx)
+        self.ctx.set_metadata(
+            "authorization",
+            f"Bearer {login_resp.token}"
+        )
+
+        self.handler.CreateBook(
+            library_pb2.CreateBookRequest(
+                title="Python Programming",
+                author="Jane Doe"
+            ),
+            self.ctx
+        )
+        self.handler.CreateBook(
+            library_pb2.CreateBookRequest(
+                title="Java Basics",
+                author="John Smith"
+            ),
+            self.ctx
+        )
+
+        list_resp = self.handler.ListBooks(
+            library_pb2.ListBooksRequest(
+                pagination=library_pb2.PaginationRequest(page=1, limit=10),
+                title="Python"
+            ),
+            self.ctx
+        )
+        self.assertIsNone(self.ctx._code)
+        self.assertEqual(len(list_resp.books), 1)
+        self.assertIn("Python", list_resp.books[0].title)
+
+    def test_list_members_with_filter(self):
+        """ListMembers with name filter returns matching members."""
+        login_req = auth_pb2.LoginRequest(
+            username="staff1",
+            password="password123"
+        )
+        login_resp = self.handler.Login(login_req, self.ctx)
+        self.ctx.set_metadata(
+            "authorization",
+            f"Bearer {login_resp.token}"
+        )
+
+        self.handler.CreateMember(
+            library_pb2.CreateMemberRequest(
+                name="Alice Johnson",
+                email="alice@example.com"
+            ),
+            self.ctx
+        )
+        self.handler.CreateMember(
+            library_pb2.CreateMemberRequest(
+                name="Bob Smith",
+                email="bob@example.com"
+            ),
+            self.ctx
+        )
+
+        list_resp = self.handler.ListMembers(
+            library_pb2.ListMembersRequest(
+                pagination=library_pb2.PaginationRequest(page=1, limit=10),
+                name="Alice"
+            ),
+            self.ctx
+        )
+        self.assertIsNone(self.ctx._code)
+        self.assertEqual(len(list_resp.members), 1)
+        self.assertIn("Alice", list_resp.members[0].name)
+
     def test_borrow_unavailable_copy_fails(self):
         """Borrowing already checked-out copy fails."""
         login_req = auth_pb2.LoginRequest(

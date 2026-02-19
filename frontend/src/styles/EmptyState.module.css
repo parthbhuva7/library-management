@@ -1,0 +1,10 @@
+.wrapper {
+  color: var(--muted);
+  font-size: var(--font-size-base);
+  margin-top: var(--space-5);
+}
+
+.link {
+  color: var(--foreground);
+  text-decoration: underline;
+}

@@ -1,5 +1,14 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Setup
+
+**Required**: Set `NEXT_PUBLIC_GRPC_BASE_URL` before running the app. The app will fail when making gRPC calls if this is not set.
+
+```bash
+cp .env.example .env.local
+# Edit .env.local if needed. Default: http://localhost:8080
+```
+
 ## Getting Started
 
 First, run the development server:

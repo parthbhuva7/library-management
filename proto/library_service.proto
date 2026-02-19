@@ -10,9 +10,11 @@ service LibraryService {
   rpc Login(auth.LoginRequest) returns (auth.LoginResponse);
   rpc CreateBook(CreateBookRequest) returns (CreateBookResponse);
   rpc UpdateBook(UpdateBookRequest) returns (UpdateBookResponse);
+  rpc GetBook(GetBookRequest) returns (GetBookResponse);
   rpc ListBooks(ListBooksRequest) returns (ListBooksResponse);
   rpc CreateMember(CreateMemberRequest) returns (CreateMemberResponse);
   rpc UpdateMember(UpdateMemberRequest) returns (UpdateMemberResponse);
+  rpc GetMember(GetMemberRequest) returns (GetMemberResponse);
   rpc ListMembers(ListMembersRequest) returns (ListMembersResponse);
   rpc BorrowBook(BorrowBookRequest) returns (BorrowBookResponse);
   rpc ReturnBook(ReturnBookRequest) returns (ReturnBookResponse);

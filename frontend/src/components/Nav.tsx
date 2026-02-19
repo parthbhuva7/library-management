@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import styles from '@/styles/Nav.module.css';
 
 const NAV_LINKS = [
   { href: '/books', label: 'Books' },
@@ -19,25 +20,12 @@ export default function Nav() {
   };
 
   return (
-    <nav
-      style={{
-        display: 'flex',
-        gap: 'var(--space-4)',
-        marginBottom: 'var(--space-5)',
-        paddingBottom: 'var(--space-4)',
-        borderBottom: '1px solid var(--border)',
-        flexWrap: 'wrap',
-      }}
-    >
+    <nav className={styles.nav}>
       {NAV_LINKS.slice(0, -1).map(({ href, label }) => (
         <Link
           key={href}
           href={href}
-          style={{
-            color: pathname.startsWith(href) ? 'var(--foreground)' : 'var(--muted)',
-            textDecoration: 'none',
-            fontSize: 'var(--font-size-base)',
-          }}
+          className={pathname.startsWith(href) ? styles.link : styles.linkMuted}
         >
           {label}
         </Link>
@@ -45,14 +33,7 @@ export default function Nav() {
       <button
         type="button"
         onClick={handle_logout}
-        style={{
-          background: 'none',
-          border: 'none',
-          color: 'var(--muted)',
-          cursor: 'pointer',
-          fontSize: 'var(--font-size-base)',
-          padding: 0,
-        }}
+        className={styles.logoutButton}
       >
         Logout
       </button>
